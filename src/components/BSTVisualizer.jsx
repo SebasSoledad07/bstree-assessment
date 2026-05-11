@@ -17,17 +17,6 @@ import SearchBar from "./SearchBar";
 
 import styles from "./BSTVisualizer.module.css";
 
-// BUG #5 (Performance): Esta función se recrea en cada render.
-// Cuando el árbol tiene 20+ nodos, el re-render se siente lento.
-// Pista: ¿qué hook de React sirve para memoizar una función?
-const getTraversalResult = (root, type) => {
-  switch (type) {
-    case "inOrder":   return inOrder(root);
-    case "preOrder":  return preOrder(root);
-    case "postOrder": return postOrder(root);
-    default: return [];
-  }
-};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -72,12 +61,22 @@ export default function BSTVisualizer() {
     setFoundNode(result ? result.value : null);
   };
 
+  // ── Traversal helper (memoized) ─────────────────────────────────────────────
+  const getTraversalResult = useCallback((node, type) => {
+    switch (type) {
+      case "inOrder":   return inOrder(node);
+      case "preOrder":  return preOrder(node);
+      case "postOrder": return postOrder(node);
+      default: return [];
+    }
+  }, []);
+
   // ── Derived data ────────────────────────────────────────────────────────────
   const d3Data = useMemo(() => root ? toD3Format(root) : null, [root]);
 
   const traversalResult = useMemo(
     () => activeTraversal ? getTraversalResult(root, activeTraversal) : [],
-    [root, activeTraversal]
+    [root, activeTraversal, getTraversalResult]
   );
 
   // ── Node Rendering ──────────────────────────────────────────────────────────
@@ -86,11 +85,17 @@ export default function BSTVisualizer() {
    * TODO: El estudiante debe modificar esto para que los nodos
    * que coincidan con `foundNode` se resalten visualmente.
    */
-  const renderCustomNode = ({ nodeDatum }) => {
+  const renderCustomNode = useCallback(({ nodeDatum }) => {
     if (nodeDatum.__placeholder) return <g />;
+    const isFound = foundNode !== null && nodeDatum.name === String(foundNode);
     return (
       <g>
-        <circle r={20} fill="#4A90D9" stroke="#fff" strokeWidth={2} />
+        <circle
+          r={20}
+          fill={isFound ? "#f5a623" : "#4A90D9"}
+          stroke={isFound ? "#fff" : "#fff"}
+          strokeWidth={isFound ? 3 : 2}
+        />
         <text
           fill="white"
           textAnchor="middle"
@@ -102,7 +107,7 @@ export default function BSTVisualizer() {
         </text>
       </g>
     );
-  };
+  }, [foundNode]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (

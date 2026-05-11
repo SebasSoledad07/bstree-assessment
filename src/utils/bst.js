@@ -142,12 +142,12 @@ export const toD3Format = (node) => {
 
   const children = [];
 
-  if (node.left !== null) {
-    children.push(toD3Format(node.left));
-  }
+  if (node.left !== null || node.right !== null) {
+    children.push(node.left !== null ? toD3Format(node.left) : { name: "", __placeholder: true, children: [] });
 
-  if (node.right !== null) {
-    children.push(toD3Format(node.right));
+    if (node.right !== null) {
+      children.push(toD3Format(node.right));
+    }
   }
 
   return {

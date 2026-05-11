@@ -91,8 +91,8 @@ export const search = (node, value) => {
  * @returns {number[]}
  */
 export const inOrder = (node) => {
-  // TODO: Implementar
-  return [];
+  if (node === null) return [];
+  return [...inOrder(node.left), node.value, ...inOrder(node.right)];
 };
 
 /**

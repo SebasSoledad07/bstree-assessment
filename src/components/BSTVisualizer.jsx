@@ -11,7 +11,7 @@
 import { useState, useCallback, useMemo } from "react";
 import Tree from "react-d3-tree";
 
-import { insert, search, inOrder, preOrder, postOrder, toD3Format, randomInt } from "../utils/bst";
+import { insert, search, inOrder, preOrder, postOrder, toD3Format, randomInt, getHeight } from "../utils/bst";
 import TraversalPanel from "./TraversalPanel";
 import SearchBar from "./SearchBar";
 
@@ -38,6 +38,7 @@ export default function BSTVisualizer() {
   const [searchTerm, setSearchTerm]       = useState("");
   const [foundNode, setFoundNode]         = useState(null);
   const [errorMessage, setErrorMessage]   = useState("");
+  const [treeHeight, setTreeHeight]       = useState(null);
 
   // ── Insert ──────────────────────────────────────────────────────────────────
   const handleInsert = () => {
@@ -57,6 +58,11 @@ export default function BSTVisualizer() {
   const handleRandomInsert = () => {
     const value = randomInt(1, 99);
     setRoot((prevRoot) => insert(prevRoot, value));
+  };
+
+  // ── Height ──────────────────────────────────────────────────────────────────
+  const handleGetHeight = () => {
+    setTreeHeight(getHeight(root));
   };
 
   // ── Search ──────────────────────────────────────────────────────────────────
@@ -120,6 +126,14 @@ export default function BSTVisualizer() {
           <button onClick={handleRandomInsert} className={`${styles.button} ${styles.secondary}`}>
             🎲 Aleatorio
           </button>
+          <button onClick={handleGetHeight} className={`${styles.button} ${styles.secondary}`}>
+            📏 Altura
+          </button>
+          {treeHeight !== null && (
+            <span style={{ color: "#a8d8a8", fontWeight: "bold", alignSelf: "center" }}>
+              Altura: {treeHeight}
+            </span>
+          )}
         </div>
 
         {errorMessage && (

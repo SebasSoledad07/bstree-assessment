@@ -117,8 +117,8 @@ export const preOrder = (node) => {
  * @returns {number[]}
  */
 export const postOrder = (node) => {
-  // TODO: Implementar
-  return [];
+  if (node === null) return [];
+  return [...postOrder(node.left), ...postOrder(node.right), node.value];
 };
 
 // ─── Tree Transformation ─────────────────────────────────────────────────────

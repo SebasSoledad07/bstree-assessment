@@ -38,8 +38,6 @@ export const insert = (node, value) => {
     return createNode(value); // ← Esto está bien, pero ¿cuándo se usa?
   }
 
-  // BUG: La comparación siempre va a la derecha
-  // Debería ir a la izquierda cuando value < node.value
   if (value > node.value) {
     return {
       ...node,
@@ -47,10 +45,10 @@ export const insert = (node, value) => {
     };
   }
 
-  if (value > node.value) { // ← BUG: condición duplicada e incorrecta
+  if (value < node.value) {
     return {
       ...node,
-      right: insert(node.right, value),
+      left: insert(node.left, value),
     };
   }
 
@@ -144,13 +142,12 @@ export const toD3Format = (node) => {
 
   const children = [];
 
-  // BUG: Si node.left es null pero node.right no, nunca se agrega node.right
   if (node.left !== null) {
     children.push(toD3Format(node.left));
+  }
 
-    if (node.right !== null) {
-      children.push(toD3Format(node.right));
-    }
+  if (node.right !== null) {
+    children.push(toD3Format(node.right));
   }
 
   return {

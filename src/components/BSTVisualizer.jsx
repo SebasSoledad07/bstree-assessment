@@ -21,13 +21,19 @@ import styles from "./BSTVisualizer.module.css";
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BSTVisualizer() {
-  const [root, setRoot]                   = useState(null);
-  const [inputValue, setInputValue]       = useState("");
-  const [activeTraversal, setTraversal]   = useState(null); // "inOrder" | "preOrder" | "postOrder"
-  const [searchTerm, setSearchTerm]       = useState("");
-  const [foundNode, setFoundNode]         = useState(null);
-  const [errorMessage, setErrorMessage]   = useState("");
-  const [treeHeight, setTreeHeight]       = useState(null);
+  const [root, setRoot] = useState(null);
+  const [inputValue, setInputValue] = useState("");
+  const [activeTraversal, setTraversal] = useState(null); // "inOrder" | "preOrder" | "postOrder"
+  const [searchTerm, setSearchTerm] = useState("");
+  /**
+   * 🔴 BUG #6 CORREGIDO: El estado inicial era `null`, que SearchBar interpretó
+   * como "búsqueda realizada sin resultado" y mostraba "No encontrado" al cargar.
+   * SOLUCIÓN: Usar `undefined` como valor centinela que significa "sin búsqueda aún".
+   * SearchBar distingue `undefined` (sin búsqueda) de `null` (buscado, no encontrado).
+   */
+  const [foundNode, setFoundNode] = useState(undefined);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [treeHeight, setTreeHeight] = useState(null);
 
   // ── Insert ──────────────────────────────────────────────────────────────────
   const handleInsert = () => {
@@ -54,18 +60,38 @@ export default function BSTVisualizer() {
     setTreeHeight(getHeight(root));
   };
 
-  // ── Search ──────────────────────────────────────────────────────────────────
+  // ── Search ─────────────────────────────────────────────────────────────────────────
+  /**
+   * 🔴 BUG #7 CORREGIDO: La versión anterior no validaba si la entrada estaba vacía.
+   * `parseInt("")` retorna `NaN`, y `search(root, NaN)` recorría el árbol entero
+   * silenciosamente (NaN < x y NaN > x son siempre false) antes de retornar null,
+   * mostrando "No encontrado" sin nunca advertir al usuario del error de entrada.
+   * SOLUCIÓN: Guardar con early return si la entrada no es un número válido.
+   */
   const handleSearch = () => {
     const parsed = parseInt(searchTerm, 10);
+
+    if (isNaN(parsed)) {
+      setFoundNode(undefined); // Restablece a "sin búsqueda"
+      return;
+    }
+
     const result = search(root, parsed);
     setFoundNode(result ? result.value : null);
   };
 
-  // ── Traversal helper (memoized) ─────────────────────────────────────────────
+  /**
+   * Función auxiliar para obtener el resultado de un recorrido dado su nombre.
+   *
+   * 🟡 PERF NOTA: `useCallback` con dependencias vacías es correcto aquí porque
+   * la función no cierra sobre ningún estado (solo usa sus argumentos).
+   * Esto garantiza una referencia estable entre renders, necesaria para que
+   * `useMemo` no recalcule `traversalResult` innecesariamente.
+   */
   const getTraversalResult = useCallback((node, type) => {
     switch (type) {
-      case "inOrder":   return inOrder(node);
-      case "preOrder":  return preOrder(node);
+      case "inOrder": return inOrder(node);
+      case "preOrder": return preOrder(node);
       case "postOrder": return postOrder(node);
       default: return [];
     }
@@ -79,21 +105,26 @@ export default function BSTVisualizer() {
     [root, activeTraversal, getTraversalResult]
   );
 
-  // ── Node Rendering ──────────────────────────────────────────────────────────
   /**
    * Función de render personalizada para cada nodo del árbol.
-   * TODO: El estudiante debe modificar esto para que los nodos
-   * que coincidan con `foundNode` se resalten visualmente.
+   *
+   * Resalta visualmente el nodo cuyo valor coincida con `foundNode`
+   * (circulo naranja en lugar del azul por defecto).
+   *
+   * 🟡 PERF: `useCallback` depende de `foundNode` para recalcular solo cuando
+   * cambia el nodo encontrado, evitando re-renders innecesarios del árbol completo.
+   *
+   * 🔴 BUG #4 CORREGIDO (efecto secundario): Se eliminó el guard `__placeholder`
+   * porque `toD3Format` ya no genera nodos placeholder.
    */
   const renderCustomNode = useCallback(({ nodeDatum }) => {
-    if (nodeDatum.__placeholder) return <g />;
-    const isFound = foundNode !== null && nodeDatum.name === String(foundNode);
+    const isFound = foundNode !== null && foundNode !== undefined && nodeDatum.name === String(foundNode);
     return (
       <g>
         <circle
           r={20}
           fill={isFound ? "#f5a623" : "#4A90D9"}
-          stroke={isFound ? "#fff" : "#fff"}
+          stroke="#fff"
           strokeWidth={isFound ? 3 : 2}
         />
         <text
@@ -108,7 +139,6 @@ export default function BSTVisualizer() {
       </g>
     );
   }, [foundNode]);
-
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className={styles.container}>

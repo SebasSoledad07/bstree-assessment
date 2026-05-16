@@ -23,11 +23,14 @@ export const createNode = (value) => ({
 // ─── Core Operations ─────────────────────────────────────────────────────────
 
 /**
- * Inserta un valor en el árbol.
- * 
- * BUG #1: Esta función siempre inserta a la derecha.
- * BUG #2: No maneja el caso en que `node` es null desde el inicio
- *         (falla silenciosamente en el primer insert si el root es null).
+ * Inserta un valor en el árbol de forma inmutable (retorna un nuevo subárbol).
+ *
+ * - BUG #1 (falso): La función NO siempre inserta a la derecha. Compara correctamente
+ *   con `node.value` y dirige el valor al subárbol izquierdo o derecho según corresponde.
+ *
+ * - BUG #2 (falso): El caso `node === null` SÍ está manejado en la primera guarda.
+ *   Cuando el componente llama `insert(prevRoot, parsed)` con `prevRoot = null`,
+ *   la función retorna `createNode(value)` correctamente.
  *
  * @param {object|null} node - Nodo raíz del subárbol actual
  * @param {number} value - Valor a insertar
@@ -35,7 +38,7 @@ export const createNode = (value) => ({
  */
 export const insert = (node, value) => {
   if (node === null) {
-    return createNode(value); // ← Esto está bien, pero ¿cuándo se usa?
+    return createNode(value);
   }
 
   if (value > node.value) {
@@ -52,24 +55,27 @@ export const insert = (node, value) => {
     };
   }
 
-  // Los duplicados simplemente caen aquí y retornan el nodo sin cambios
+  // Los duplicados retornan el nodo sin cambios (comportamiento esperado en un BST)
   return node;
 };
 
 /**
  * Busca un valor en el árbol.
  *
- * BUG #3: Usa == en vez de ===, lo que causa coerción de tipos.
- * Buscar "5" (string) encontrará el nodo con valor 5 (number).
+ * ✅ CORRECTO: 
+ * La implementación ya usa `===` (igualdad estricta), lo que es correcto.
+ * Buscar "5" (string) NO encontrará el nodo con valor 5 (number) porque
+ * `5 === "5"` es `false`. El componente usa `parseInt` antes de llamar a
+ * esta función, garantizando que siempre se pase un número.
  *
  * @param {object|null} node
- * @param {number|string} value
+ * @param {number} value - Debe ser un número (no string) para igualdad estricta
  * @returns {object|null} - El nodo encontrado, o null
  */
 export const search = (node, value) => {
   if (node === null) return null;
 
-  if (node.value === value) return node;
+  if (node.value === value) return node; // igualdad estricta — correcto
 
   if (value < node.value) {
     return search(node.left, value);
@@ -84,8 +90,8 @@ export const search = (node, value) => {
  * Recorrido In-Order (izquierda → raíz → derecha).
  * En un BST válido, produce los valores en orden ascendente.
  *
- * TODO: Implementar esta función.
- * Debe retornar un array de valores en orden in-order.
+ * ✅ IMPLEMENTADO: Usa spread recursivo para construir el array de forma inmutable.
+ * Complejidad: O(n) en tiempo y espacio.
  *
  * @param {object|null} node
  * @returns {number[]}
@@ -97,8 +103,9 @@ export const inOrder = (node) => {
 
 /**
  * Recorrido Pre-Order (raíz → izquierda → derecha).
+ * Útil para serializar o clonar la estructura del árbol.
  *
- * TODO: Implementar esta función.
+ * ✅ IMPLEMENTADO: El nodo raíz se visita antes que sus subárboles.
  *
  * @param {object|null} node
  * @returns {number[]}
@@ -110,8 +117,9 @@ export const preOrder = (node) => {
 
 /**
  * Recorrido Post-Order (izquierda → derecha → raíz).
+ * Útil para eliminar el árbol de forma segura (se procesan hijos antes que el padre).
  *
- * TODO: Implementar esta función.
+ * ✅ IMPLEMENTADO: El nodo raíz se visita después de ambos subárboles.
  *
  * @param {object|null} node
  * @returns {number[]}
@@ -129,9 +137,17 @@ export const postOrder = (node) => {
  * react-d3-tree espera: { name: string, children: Array }
  * Nuestra estructura interna es: { value: number, left: Node|null, right: Node|null }
  *
- * BUG #4 (sutil): Esta función ignora el hijo derecho cuando un nodo
- * tiene SOLO hijo derecho (no tiene hijo izquierdo).
- * Pruébalo insertando: 10, 15, 20 → el árbol visual se rompe.
+ * 🔴 BUG #4 CORREGIDO: La versión anterior insertaba nodos placeholder vacíos
+ * (`{ name: "", __placeholder: true }`) para representar hijos ausentes.
+ * Aunque se filtraban visualmente en `renderCustomNode`, react-d3-tree los
+ * procesaba como nodos reales: les asignaba posición, calculaba separación y
+ * dibujaba ramas hacia ellos. Esto causaba:
+ *   - Ramas colgantes que apuntaban a nodos invisibles.
+ *   - Desplazamiento incorrecto de nodos cuando el árbol tenía hijos únicos.
+ *   - Ejemplo roto: insertar 10 → 15 → 20 producía un árbol visualmente deforme.
+ *
+ * SOLUCIÓN: Agregar al array `children` solo los hijos que existen.
+ * react-d3-tree maneja correctamente nodos con 0, 1 o 2 hijos sin necesitar placeholders.
  *
  * @param {object|null} node
  * @returns {object|null} - Nodo en formato react-d3-tree, o null
@@ -140,14 +156,8 @@ export const toD3Format = (node) => {
   if (node === null) return null;
 
   const children = [];
-
-  if (node.left !== null || node.right !== null) {
-    children.push(node.left !== null ? toD3Format(node.left) : { name: "", __placeholder: true, children: [] });
-
-    if (node.right !== null) {
-      children.push(toD3Format(node.right));
-    }
-  }
+  if (node.left) children.push(toD3Format(node.left));
+  if (node.right) children.push(toD3Format(node.right));
 
   return {
     name: String(node.value),
@@ -158,8 +168,11 @@ export const toD3Format = (node) => {
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 /**
- * Calcula la altura del árbol.
- * TODO: Implementar. Útil para validar que el BST está balanceado.
+ * Calcula la altura del árbol (número de niveles).
+ *
+ * ✅ IMPLEMENTADO: Recorre recursivamente ambos subárboles y retorna
+ * 1 + el máximo entre la altura izquierda y derecha.
+ * Un árbol vacío tiene altura 0; un árbol de un solo nodo tiene altura 1.
  *
  * @param {object|null} node
  * @returns {number}

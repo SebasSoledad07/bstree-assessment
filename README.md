@@ -4,6 +4,9 @@
 
 ---
 
+## Enlace del video explicando el codigo
+
+https://www.youtube.com/watch?v=e10TfMx4zmE
 ## Objetivo
 
 Recibirás un proyecto React **intencionalmente roto e incompleto**. Tu misión es diagnosticar, corregir y extender el código como lo haría un desarrollador profesional en un entorno real.
